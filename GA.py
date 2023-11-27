@@ -63,6 +63,14 @@ def crossover(population: np.ndarray[bool],
     cross-over points (so long as it is less than the genome length) and
     uniform crossover.
 
+    [1] de Jong, K. A. (1975). Analysis of the behavior of a class of
+        genetic adaptive systems.
+    [2] Schaffer, J. D., Caruana, R. A., Eshelman, L. J., & Das, R. (1989).
+        A Study of Control Parameters Affecting Online Performance of
+        Genetic Algorithms for Function Optimization. Proceedings of the
+        Third International Conference on Genetic Algorithms, 51–60.
+        https://www.researchgate.net/publication/220885653
+
     Parameters
     ----------
     population : np.ndarray[bool]
@@ -74,6 +82,7 @@ def crossover(population: np.ndarray[bool],
         genes. If int, the crossover locations are chosen at random.
     p_crossover : float
         Probability that a given sequential pair undergoes crossover.
+        Common values are .6 [1] or .75-.95 [2].
     p_gene_crossover : float or NoneType, optional
         If n_crossover is set to "uniform", this determines the probability
         of crossover per individual gene. If n_crossover is set to an integer
