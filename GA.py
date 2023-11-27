@@ -3,6 +3,7 @@ import numpy as np
 # https://iohprofiler.github.io/IOHexp/ and
 # https://pypi.org/project/ioh/
 from ioh import get_problem, logger, ProblemClass
+from typing import Union, Optional
 
 budget = 5000
 dimension = 50
@@ -11,7 +12,138 @@ dimension = 50
 # you could set the random seed by
 np.random.seed(3366766)
 
-# %% Define the variators and selection functions
+# %% Define the variator and selection functions
+
+
+def mutate(population: np.ndarray[bool],
+           p_mutation: Union[float, None] = None):
+    """
+    Mutate the given population with gene-wise probability p_mutation.
+
+    Takes the population and alters each gene of each individual with
+    probability p_mutation; takes place in-place, so as to avoid having to
+    copy over the full population every generation.
+
+    Parameters
+    ----------
+    population : np.ndarray[bool]
+        Population expressed as Boolean array with each row corresponding
+        to an individual and each column to a gene.
+    p_mutation : float or NoneType, optional
+        Probability of mutation per gene. If set to None, the "standard" value
+        of 1/population.shape[1] is used, which flips on average one gene
+        per individual. The default is None.
+
+    Returns
+    -------
+    population : np.ndarray[bool]
+        Mutated population; the operation occurs in-place to avoid having to
+        copy over the full population every generation.
+    """
+    # If p_mutation is not set, set it equal to the gene length
+    if p_mutation is None:
+        p_mutation = 1/population.shape[1]
+    # (Randomly) determine which genes are mutated
+    mutate_array = (np.random.uniform(0, 1, population.shape) < p_mutation)
+    # Flip the selected bits in-place using array masking
+    # We use the fact that Python uses 0 and 1 interchangeably with False and
+    # True to do this quickly.
+    population[mutate_array] = 1 - population[mutate_array]
+    return population
+
+
+def crossover(population: np.ndarray[bool],
+              n_crossover: Union[int, str],
+              p_crossover: float,
+              p_gene_crossover: Union[float, None] = None):
+    """
+    Perform cross-over on the population in place.
+
+    Perform in-place cross-over on the population. Supports arbitrarily many
+    cross-over points (so long as it is less than the genome length) and
+    uniform crossover.
+
+    Parameters
+    ----------
+    population : np.ndarray[bool]
+        Population on which to perform cross-over.
+    n_crossover : int or str
+        Number of crossover points. Supports values of 1 up to
+        population.shape[1], and "uniform", which applies uniform crossover.
+        If "uniform", p_crossover is the crossover probability of individual
+        genes. If int, the crossover locations are chosen at random.
+    p_crossover : float
+        Probability that a given sequential pair undergoes crossover.
+    p_gene_crossover : float or NoneType, optional
+        If n_crossover is set to "uniform", this determines the probability
+        of crossover per individual gene. If n_crossover is set to an integer
+        value, this parameter is not used and can be set to None.
+
+    Returns
+    -------
+    population : np.ndarray[bool]
+        Population after crossover: operation performed in-place.
+    """
+    if not (((type(n_crossover) is int)
+             and (0 < n_crossover < population.shape[1]))
+            or (str(n_crossover).lower() == "uniform")):
+        raise ValueError("n_crossover must be given a valid value")
+    if n_crossover == "uniform":
+        if p_gene_crossover is None:
+            raise ValueError("Set a valid value for p_gene_crossover")
+        # Perform uniform crossover
+        # Loop through all sequential pairs, starting with the pair comprising
+        # the -1-th and 0-th individual.
+        for pair_idx in range(-1, population.shape[0]-1):
+            if np.random.uniform(0, 1) < p_crossover:
+                # Determine which genes will undergo crossover
+                crossover_mask = (np.random.uniform(0, 1,
+                                                    population.shape[1]) <
+                                  p_gene_crossover)
+                # Store the crossover genes of the second individual
+                temp_genes = np.copy(population[pair_idx+1, crossover_mask])
+                # Set the crossed-over genes of the second individual
+                population[pair_idx+1,
+                           crossover_mask] = population[pair_idx,
+                                                        crossover_mask]
+                # Set the crossed-over genes of the first individual
+                population[pair_idx, crossover_mask] = temp_genes
+        return population
+    else:
+        # Perform n-point crossover; loop over all sequential pairs of
+        # individuals
+        for pair_idx in range(-1, population.shape[0]-1):
+            if np.random.uniform(0, 1) < p_crossover:
+                # First randomly determine the crossover points: label
+                # the possible crossover points by the index of the gene
+                # that they precede: the first crossover point has index 1,
+                # the second 2, etc. up until the last, which has index
+                # population.shape[1]-1 (as there is 1 less possible
+                # crossover point than there are genes). This naming
+                # allows us to later efficiently use slicing for cross-over.
+                # Preallocate an array
+                crossover_points = np.zeros((n_crossover + 2,),
+                                            dtype=int)
+                # All but the first and last components correspond to
+                # crossover points
+                crossover_points[1:-1] = np.sort(np.random.choice(
+                    np.arange(1, population.shape[1]), n_crossover,
+                    replace=False))
+                # The first and last components are 0 and the gene length,
+                # respectively; this allows us to loop neatly later on
+                crossover_points[-1] = population.shape[1]
+                # Loop over all crossover intervals, and exchange the
+                for idx_start, idx_stop in zip(crossover_points[:-1],
+                                               crossover_points[1:]):
+                    # Store the crossover genes of the second individual
+                    temp_genes = np.copy(
+                        population[pair_idx+1, idx_start:idx_stop])
+                    # Set the crossed-over genes for the second individual
+                    population[pair_idx+1, idx_start:idx_stop] = \
+                        population[pair_idx, idx_start:idx_stop]
+                    # And for the first
+                    population[pair_idx, idx_start:idx_stop] = temp_genes
+        return population
 
 
 def mating_selection(parents: np.ndarray[bool],
@@ -80,7 +212,6 @@ def mating_selection(parents: np.ndarray[bool],
         # Set this parent as the corresponding offspring individual
         selected_population[p_idx, :] = parents[gen_idx, :]
     return selected_population
-
 
     # %%
 
