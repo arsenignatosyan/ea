@@ -65,6 +65,28 @@ def individual_sigma_mutation(population: np.ndarray, population_sigma: np.ndarr
     return mut_population, mut_sigma
 
 
+def rotation_matrix(alpha_ij: float, i: int, j: int, n: int) -> np.ndarray:
+    R = np.eye(n)
+    cos_alpha, sin_alpha = np.cos(alpha_ij), np.sin(alpha_ij)
+
+    R[i, i] = cos_alpha
+    R[j, j] = cos_alpha
+    R[i, j] = -sin_alpha
+    R[j, i] = sin_alpha
+
+    return R
+
+
+def multiply_rotation_matrix(alpha: np.ndarray, n: int) -> np.ndarray:
+    mult_matrix = np.eye(n)
+    for i in range(n - 1):
+        for j in range(i, n):
+            alpha_ij = alpha[i + j]
+            mult_matrix = np.matmul(mult_matrix, rotation_matrix(alpha_ij=alpha_ij, i=i, j=j, n=n))
+
+    return mult_matrix
+
+
 def correlated_mutation(population: np.ndarray, population_sigma: np.ndarray, population_rotation_angles: np.ndarray,
                         problem_dimension: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     tau = 1 / np.sqrt(2 * problem_dimension)
@@ -83,9 +105,10 @@ def correlated_mutation(population: np.ndarray, population_sigma: np.ndarray, po
             if abs(mut_rotation_angles[i][k]) > np.pi:
                 mut_rotation_angles[i][k] = mut_rotation_angles[i][k] - 2 * np.pi * np.sign(mut_rotation_angles[i][k])
 
-        sigma_mat = np.identity(n=problem_dimension) * mut_sigma[i]
-        C_sqrt = np.prod(-1 * np.sin(mut_rotation_angles[i])) * sigma_mat
-        C_prime = C_sqrt * C_sqrt.T
+        sigma_mat = np.eye(problem_dimension) * mut_sigma[i]
+        mult_rotation_matrix = multiply_rotation_matrix(alpha=mut_rotation_angles[i], n=problem_dimension)
+        C_sqrt = np.matmul(mult_rotation_matrix, sigma_mat)
+        C_prime = np.matmul(C_sqrt, C_sqrt.T)
         mut_population[i] = population[i] + np.random.multivariate_normal(mean=np.zeros(problem_dimension), cov=C_prime)
 
     return mut_population, mut_sigma, mut_rotation_angles
@@ -181,10 +204,13 @@ def create_problem(fid: int) -> Tuple[Union[ioh.iohcpp.problem.IsingRing, ioh.io
 if __name__ == "__main__":
     F18, _logger = create_problem(18)
     pop, _, _ = initialize_population(problem=F18, budget=300)
-    print(pop)
-    pop_std = calculate_initial_population_std(population=pop, mutation_type="correlated", problem_dimension=F18.meta_data.n_variables)
+    # print(pop)
+    pop_std = calculate_initial_population_std(population=pop, mutation_type="correlated",
+                                               problem_dimension=F18.meta_data.n_variables)
     rot_ang = generate_rotation_angles(defined_population_size=len(pop), problem_dimension=F18.meta_data.n_variables)
-    # mut_pop, _, _ = correlated_mutation(population=pop, population_sigma=pop_std, population_rotation_angles=rot_ang, problem_dimension=F18.meta_data.n_variables)
-    mut_pop, _ = individual_sigma_mutation(population=pop, population_sigma=pop_std, problem_dimension=F18.meta_data.n_variables)
+    mut_pop, _, _ = correlated_mutation(population=pop, population_sigma=pop_std, population_rotation_angles=rot_ang,
+                                        problem_dimension=F18.meta_data.n_variables)
+    # mut_pop, _ = individual_sigma_mutation(population=pop, population_sigma=pop_std,
+    #                                        problem_dimension=F18.meta_data.n_variables)
     print(mut_pop)
     print("========================")
