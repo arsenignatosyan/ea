@@ -167,12 +167,18 @@ def global_discrete_recombination(parent: np.ndarray[bool]) -> np.ndarray[bool]:
     return np.array(offspring)
 
 
-def global_intermediate_recombination(parent_sigma: np.ndarray[float], parent_rotation_angles: np.ndarray[float]) -> \
-Tuple[np.ndarray[float], np.ndarray[float]]:
-    offspring_sigma = np.mean(parent_sigma, axis=0)
-    offspring_rotation_angles = np.mean(parent_rotation_angles, axis=0)
+def intermediate_recombination(parent: np.ndarray[float]) -> np.ndarray[bool]:
+    sample_idxs = np.random.choice(len(parent), 2)
+    sample_parent = parent[sample_idxs]
+    offspring = np.mean(sample_parent, axis=0)
 
-    return offspring_sigma, offspring_rotation_angles
+    return np.array(offspring)
+
+
+def global_intermediate_recombination(parent: np.ndarray[float]) -> Tuple[np.ndarray[float]]:
+    offspring = np.mean(parent, axis=0)
+
+    return offspring
 
 
 def recombination(lambda_: int, binary_population: np.ndarray[bool], population_sigma: np.ndarray[float],
@@ -184,8 +190,8 @@ def recombination(lambda_: int, binary_population: np.ndarray[bool], population_
             o = global_discrete_recombination(parent=binary_population)
         else:
             o = discrete_recombination(parent=binary_population)
-        o_sigma, o_rotation_angles = global_intermediate_recombination(parent_sigma=population_sigma,
-                                                                       parent_rotation_angles=population_rotation_angles)
+        o_sigma = global_intermediate_recombination(parent=population_sigma)
+        o_rotation_angles = global_intermediate_recombination(parent=population_rotation_angles)
         offspring.append(o)
         offspring_sigma.append(o_sigma)
         offspring_rotation_angles.append(o_rotation_angles)
