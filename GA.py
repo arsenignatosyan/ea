@@ -3,15 +3,13 @@ import numpy as np
 # https://iohprofiler.github.io/IOHexp/ and
 # https://pypi.org/project/ioh/
 from ioh import get_problem, logger, ProblemClass
-from typing import Union, Optional
+from typing import Union, Optional, Callable
 from datetime import datetime
+import sys
 
 budget = 5000
 dimension = 50
 
-# To make your results reproducible (not required by the assignment),
-# you could set the random seed by
-np.random.seed(3366766)
 
 # %% Define the variator and selection functions
 
@@ -546,7 +544,12 @@ def two_rate_GA(problem):
         r = np.clip(r, 2, dimension/4)
 
 
-def two_rate_mu_GA(problem):
+def two_rate_mu_GA(problem,
+                   mu: int = 5,
+                   lam: int = 20,
+                   r_init: float = 2,
+                   F: float = 1.1,
+                   return_r: bool = False):
     """
     Optimise the given problem using a two-rate genetic algorithm.
 
@@ -560,21 +563,29 @@ def two_rate_mu_GA(problem):
     ----------
     problem : ioh.iohcpp.problem
         Problem in question.
+    mu : int, optional
+        Number of parents to select for reproduction in each generation.
+    lam : int, optional
+        Number of offspring to produce from the parents in each generation.
+    r_init : float, optional
+        Initial bit-flip rate to start with.
+    F : float, optional
+        Fractional change to make to the bit-flip rate in each generation.
+    return_r : bool, optional
+        Whether to return the history of bit-flip rates in each generation.
 
     Returns
     -------
-    None.
+    r_hist : list, optional
+        History of values of the bit-flip rate. Only returned if return_r is
+        set to True.
     """
-    # Set the parameters of the GA
-    mu = 5
-    lam = 20
-    r_init = 1
-    F = 1.1
     # Randomly create the initial population
     parents = np.uint8(np.random.uniform(0, 1, size=(mu, dimension)) < .5)
     f_parents = evaluate(problem, parents)
     # Set the initial rate
     r = r_init
+    r_hist = [r]
     while problem.state.evaluations < budget:
         # Initialise the array of function-values
         offspring_f = np.zeros((lam,))
@@ -596,25 +607,70 @@ def two_rate_mu_GA(problem):
             F*r/dimension)
         offspring[mut_mask] = 1 - offspring[mut_mask]
         offspring_f = evaluate(problem, offspring)
+        # Concatenate the parents and offspring to form the total generation
+        offspring = np.concatenate((parents, offspring), axis=0)
+        offspring_f = np.concatenate((f_parents, offspring_f), axis=0)
+
         # Select the best mu offspring + parents to provide the next gen
+        # We must invert the array as argsort sorts in ascending order
         arg_nextgen = np.argsort(offspring_f)[::-1][:mu]
         parents = offspring[arg_nextgen, :]
         f_parents = offspring_f[arg_nextgen]
         # Determine the mutation rate for the next generation:
         # here we have the best-performing individual play the role that the
         # single parent would in the single-parent two-rate GA
+        # With 50% chance alter the rate deterministically
         if np.random.uniform(0, 1) < .5:
             if arg_nextgen[0] <= lam/2:
-                r = r/(F*dimension)
+                r = r/F
             else:
-                r = F*r/dimension
+                r = F*r
         else:
-            r = np.random.choice([r/(F*dimension), F*r/dimension])
-        r = np.clip(r, 2, dimension/4)
+            # With the other 50% chance, alter it randomly
+            r = np.random.choice([r/F, F*r])
+        # Clip the rate to be such that we always have more than 1 bit-flip
+        # on average and such that we never exceed a .5 bit-flip probability
+        # (recall that the low rate will be r/F and the high rate will be r*F)
+        r = np.clip(r, F, dimension/(2*F))
+        r_hist.append(r)
+    if return_r:
+        return np.array(r_hist)
 
 
+def create_problem(fid: int,
+                   root: str = "data",
+                   folder_name: str = "run_",
+                   algorithm_name: str = "GA",
+                   algorithm_info: str = "Practical assignment of EA",
+                   timestamp: bool = True):
+    """
+    Create an ioh.iohcpp.problem and add a logger to it.
 
-def create_problem(fid: int):
+    Parameters
+    ----------
+    fid : int
+        ID of the benchmark function to use.
+    root : str, optional
+        Folder in which to store the data. The default is "data".
+    folder_name : str, optional
+        Folder in which to store the data for this particular run. The
+        default is "run_". A timestamp is appended to this name if timestamp
+        is set to True.
+    algorithm_name : str, optional
+        Algorithm name to attach to the logger. The default is "GA".
+    algorithm_info : str, optional
+        Algorithm info to include with the logger. The default is "Practical
+        assignment of EA".
+    timestamp : bool, optional
+        Whether to add a timestamp to the folder_name.
+
+    Returns
+    -------
+    problem : ioh.iohcpp.problem
+        Implementation-ready problem with attached logger.
+    log : ioh.iohcpp.logger.Analyzer
+        Logger attached to the problem.
+    """
     # Declaration of problems to be tested.
     problem = get_problem(fid, dimension=dimension,
                           instance=1, problem_class=ProblemClass.PBO)
@@ -623,40 +679,104 @@ def create_problem(fid: int):
     # `root` indicates where the output files are stored.
     # `folder_name` is the name of the folder containing all output.
     # You should compress the folder 'run' and upload it to IOHanalyzer.
-    time_str = datetime.now().strftime("%Y_%m_%d_%H%M%S")
+    if timestamp:
+        time_str = datetime.now().strftime("%Y_%m_%d_%H%M%S")
+        folder_name = folder_name + time_str
     log = logger.Analyzer(
         # the working directory in which a folder named `folder_name`
         # (the next argument) will be created to store data
-        root="data",
-        folder_name="run_"+time_str,  # the folder name to which the raw
+        root=root,
+        folder_name=folder_name,  # the folder name to which the raw
         # performance
         # data will be stored
-        algorithm_name="GA_"+time_str,  # name of your algorithm
-        algorithm_info="Practical assignment of the EA course",
+        algorithm_name=algorithm_name+time_str,  # name of your algorithm
+        algorithm_info=algorithm_info,
     )
     # attach the logger to the problem
     problem.attach_logger(log)
     return problem, log
 
 
+# def run_wrapper(fid: int,
+#                 runs: int,
+#                 algorithm: Callable):
+#     """
+#     Run an algorithm several times on a given problem.
+
+#     Parameters
+#     ----------
+#     fid : int
+#         ID of the problem to test the algorithm on.
+#     runs : int
+#         Number of runs to do.
+#     algorithm : Callable
+#         Algorithm to test. Must take a single argument corresponding to the
+#         problem in question.
+
+#     Returns
+#     -------
+#     None.
+#     """
+#     Fid, _logger = create_problem(fid)
+#     for run in range(runs):
+#         algorithm(Fid)  # Run the algorithm
+#         Fid.reset()  # Reset the problem after the run
+#     # Close the logger
+#     _logger.close()
+
+# # this how you run your algorithm with 20 repetitions/independent run
+# F18, _logger = create_problem(18)
+# for run in range(20):
+#     two_rate_mu_GA(F18)
+#     F18.reset()  # it is necessary to reset the problem after
+#     # each independent run
+# _logger.close()  # after all runs, it is necessary to close the
+# # logger to make sure all data are written to the folder
+
+
 if __name__ == "__main__":
-    # this how you run your algorithm with 20 repetitions/independent run
-    F18, _logger = create_problem(18)
-    for run in range(20):
-        two_rate_mu_GA(F18)
-        F18.reset()  # it is necessary to reset the problem after
-        # each independent run
-    _logger.close()  # after all runs, it is necessary to close the
-    # logger to make sure all data are written to the folder
-
-    F19, _logger = create_problem(19)
-    for run in range(20):
-        two_rate_mu_GA(F19)
-        F19.reset()
-    _logger.close()
-
-    F1, _logger = create_problem(1)
-    for run in range(20):
-        two_rate_mu_GA(F1)
-        F1.reset()
-    _logger.close()
+    np.random.seed(3366766)
+    # Run the algorithm for a variety of population-offspring values
+    # Set the mu- and lambda-values to test
+    mu_vals = np.array([1, 2, 3, 4, 5])
+    lam_vals = np.array([2, 3, 4, 5, 10, 20, 30, 40, 50, 60, 70, 80])
+    n_runs = 20  # Nr of runs
+    fid_vals = [1, 18, 19]  # Function IDs to run
+    # Tot nr of loop components:
+    tot_vals = mu_vals.shape[0]*lam_vals.shape[0]*len(fid_vals)*n_runs
+    count = 0
+    print("Running tests for offspring and parent numbers...")
+    time_str = datetime.now().strftime("%Y_%m_%d_%H%M%S")
+    r_init = 20
+    F = 1.06
+    folder_path = "run_" + time_str + f"_r{r_init}_F{F}"
+    r_dict = np.full((mu_vals.shape[0], lam_vals.shape[0], len(fid_vals),
+                      n_runs, 5000), np.nan, dtype=np.float64)
+    for mu_idx, mu in enumerate(mu_vals):
+        for lam_idx, lam in enumerate(lam_vals):
+            for fid_idx, fid in enumerate(fid_vals):
+                path = folder_path + \
+                    f"/({mu}+{lam})-GA/F{fid}_2_rate_({mu}+{lam})-GA_"
+                Fid, _logger = create_problem(
+                    fid,
+                    folder_name=path,
+                    algorithm_name=f"2_rate_({mu}+{lam})-GA",
+                    algorithm_info=f"2-rate ({mu}+{lam})-GA")
+                for run in range(n_runs):
+                    r_hist = two_rate_mu_GA(Fid, mu=mu, lam=lam,
+                                            r_init=r_init,
+                                            F=F,
+                                            return_r=True)
+                    Fid.reset()
+                    count += 1
+                    print(f"\rCompleted {round(count/tot_vals*100, 3)}%",
+                          end='', flush=True)
+                    r_dict[mu_idx, lam_idx, fid_idx, run,
+                           :r_hist.shape[0]] = r_hist
+                _logger.close()
+    # Save r_dict as a .txt file
+    np.savetxt("data/" + folder_path + "/r_dict.txt",
+               r_dict.reshape((r_dict.shape[0]*r_dict.shape[1] *
+                               r_dict.shape[2]*r_dict.shape[3],
+                               r_dict.shape[-1])),
+               header=f"{r_dict.shape}")
