@@ -886,7 +886,8 @@ if __name__ == "__main__":
             # Save the maximal-performance parameters
             for arg_idx, arg in enumerate(max_arg):
                 best_val = par_dict[arg_idx][arg]
-                tab[0, 5 + arg_idx] = best_val
+                tab[0, 5 + arg_idx, f_idx] = np.copy(best_val)
+                # print(best_val)
         # Now find the results marginalised over each varied parameter
         tab_row = 1
         for par_idx in range(4):
@@ -913,8 +914,8 @@ if __name__ == "__main__":
                         else:
                             tab_arg = arg_idx
                         best_val = par_dict[tab_arg][arg]
-                        tab[tab_row, 5 + tab_arg] = best_val
-                    tab[tab_row, 5 + par_idx] = par_val
+                        tab[tab_row, 5 + tab_arg, f_idx] = best_val
+                    tab[tab_row, 5 + par_idx, f_idx] = par_val
                     # Increment the table row
                 tab_row += 1
         # tab = np.round(tab, 3)
