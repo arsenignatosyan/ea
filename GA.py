@@ -5,7 +5,7 @@ import numpy as np
 from ioh import get_problem, logger, ProblemClass
 from typing import Union, Optional, Callable
 from datetime import datetime
-import sys
+import glob  # needed to find files with wildcard values for the timestamp
 
 budget = 5000
 dimension = 50
@@ -231,6 +231,7 @@ def mating_selection(parents: np.ndarray[bool],
         f_min = f_parents.min()
         S_f = f_parents.sum()
         c = f_min - offset
+        # Add a factor of 1e-16 to avoid divide-by-zero errors
         p_arr = (f_parents - c)/(S_f - c*mu + 1e-16)
     else:
         # Inefficient ad-hoc sorting algorithm that inserts the rank given
@@ -733,50 +734,187 @@ def create_problem(fid: int,
 # _logger.close()  # after all runs, it is necessary to close the
 # # logger to make sure all data are written to the folder
 
-
+# %%
 if __name__ == "__main__":
-    np.random.seed(3366766)
-    # Run the algorithm for a variety of population-offspring values
+    # Run the algorithm for a variety of population-offspring values and
+    # self-adjusting mutation rate parameters
     # Set the mu- and lambda-values to test
     mu_vals = np.array([1, 2, 3, 4, 5])
-    lam_vals = np.array([2, 3, 4, 5, 10, 20, 30, 40, 50, 60, 70, 80])
+    lam_vals = np.array([2, 3, 4, 5, 6, 7, 8, 9, 10])
     n_runs = 20  # Nr of runs
     fid_vals = [1, 18, 19]  # Function IDs to run
+    F_vals = [1.01, 1.02, 1.03, 1.04, 1.05, 1.06, 1.07, 1.08, 1.09, 1.1]
+    r_init_vals = [2, 3, 4, 5, 10, 15, 20, 25, 30]
+    # %% Run the loop
+    print("Running tests for various population and mutation rates...")
     # Tot nr of loop components:
-    tot_vals = mu_vals.shape[0]*lam_vals.shape[0]*len(fid_vals)*n_runs
+    tot_vals = mu_vals.shape[0]*lam_vals.shape[0] * \
+        len(fid_vals)*n_runs*len(F_vals)*len(r_init_vals)
     count = 0
-    print("Running tests for offspring and parent numbers...")
-    time_str = datetime.now().strftime("%Y_%m_%d_%H%M%S")
-    r_init = 20
-    F = 1.06
-    folder_path = "run_" + time_str + f"_r{r_init}_F{F}"
-    r_dict = np.full((mu_vals.shape[0], lam_vals.shape[0], len(fid_vals),
-                      n_runs, 5000), np.nan, dtype=np.float64)
-    for mu_idx, mu in enumerate(mu_vals):
-        for lam_idx, lam in enumerate(lam_vals):
-            for fid_idx, fid in enumerate(fid_vals):
-                path = folder_path + \
-                    f"/({mu}+{lam})-GA/F{fid}_2_rate_({mu}+{lam})-GA_"
-                Fid, _logger = create_problem(
-                    fid,
-                    folder_name=path,
-                    algorithm_name=f"2_rate_({mu}+{lam})-GA",
-                    algorithm_info=f"2-rate ({mu}+{lam})-GA")
-                for run in range(n_runs):
-                    r_hist = two_rate_mu_GA(Fid, mu=mu, lam=lam,
-                                            r_init=r_init,
-                                            F=F,
-                                            return_r=True)
-                    Fid.reset()
-                    count += 1
-                    print(f"\rCompleted {round(count/tot_vals*100, 3)}%",
-                          end='', flush=True)
-                    r_dict[mu_idx, lam_idx, fid_idx, run,
-                           :r_hist.shape[0]] = r_hist
-                _logger.close()
-    # Save r_dict as a .txt file
-    np.savetxt("data/" + folder_path + "/r_dict.txt",
-               r_dict.reshape((r_dict.shape[0]*r_dict.shape[1] *
-                               r_dict.shape[2]*r_dict.shape[3],
-                               r_dict.shape[-1])),
-               header=f"{r_dict.shape}")
+    for F in F_vals:
+        for r_init in r_init_vals:
+            np.random.seed(3366766)
+            time_str = datetime.now().strftime("%Y_%m_%d_%H%M%S")
+            # F = 1.05
+            # r_init = 25
+            folder_path = "run_" + time_str + f"_r{r_init}_F{F}"
+            r_dict = np.full((mu_vals.shape[0], lam_vals.shape[0],
+                              len(fid_vals),
+                              n_runs, 5000), np.nan, dtype=np.float64)
+            for mu_idx, mu in enumerate(mu_vals):
+                for lam_idx, lam in enumerate(lam_vals):
+                    for fid_idx, fid in enumerate(fid_vals):
+                        path = folder_path + \
+                            f"/({mu}+{lam})-GA/F{fid}_2_rate_({mu}+{lam})-GA_"
+                        Fid, _logger = create_problem(
+                            fid,
+                            folder_name=path,
+                            algorithm_name=f"2_rate_({mu}+{lam})-GA",
+                            algorithm_info=f"2-rate ({mu}+{lam})-GA")
+                        for run in range(n_runs):
+                            r_hist = two_rate_mu_GA(Fid, mu=mu, lam=lam,
+                                                    r_init=r_init,
+                                                    F=F,
+                                                    return_r=True)
+                            Fid.reset()
+                            count += 1
+                            print(
+                                f"\rCompleted {round(count/tot_vals*100, 3)}%",
+                                end='', flush=True)
+                            r_dict[mu_idx, lam_idx, fid_idx, run,
+                                   :r_hist.shape[0]] = r_hist
+                        _logger.close()
+            # Save r_dict as a .txt file
+            np.savetxt("data/" + folder_path + "/r_dict.txt",
+                       r_dict.reshape((r_dict.shape[0]*r_dict.shape[1] *
+                                       r_dict.shape[2]*r_dict.shape[3],
+                                       r_dict.shape[-1])),
+                       header=f"{r_dict.shape}")
+        # %% Run some data analysis that must be done outside IOHanalyzer
+        root = "data/"  # Directory in the working directory where data are
+        # saved
+        # Loop over the values of r_init and F; these were used to name the
+        # various sub-directories in which data were saved
+        # Save the path conventions that IOH uses
+        path_dict = dict()
+        path_dict[1] = \
+            f'/data_f1_OneMax/IOHprofiler_f1_dim{int(dimension)}.dat'
+        path_dict[18] = \
+            f'/data_f18_LABS/IOHprofiler_f18_dim{int(dimension)}.dat'
+        path_dict[19] = \
+            f'/data_f19_IsingRing/IOHprofiler_f19_dim{int(dimension)}.dat'
+        # Preallocate an array to store all final values in
+        all_vals = np.full((len(r_init_vals), len(F_vals),
+                            mu_vals.shape[0], lam_vals.shape[0],
+                            len(fid_vals), n_runs), np.nan, dtype=float)
+        for r_idx, r_init in enumerate(r_init_vals):
+            for F_idx, F in enumerate(F_vals):
+                # Take the first directory that corresponds to these values;
+                # in principle this should be the only one if the above code
+                # has only been run once, but as we do not explicitly
+                # include the timestamp it is technically possible that
+                # multiple folders would agree with this format if we ran the
+                # code in this same directory before;
+                dir_path = glob.glob(root + f'/run_*_r{r_init}_F{F}')[0]
+                for mu_idx, mu in enumerate(mu_vals):
+                    for lam_idx, lam in enumerate(lam_vals):
+                        for fid_idx, fid in enumerate(fid_vals):
+                            # Determine the corresponding path
+                            path = (
+                                dir_path +
+                                f"/({mu}+{lam})-GA/" +
+                                f"F{fid}_2_rate_({mu}+{lam})-GA_*"
+                                )
+                            file_path = path + path_dict[fid]
+                            file = glob.glob(file_path)[0]
+                            vals = np.loadtxt(file,
+                                              comments="evaluations raw_y")
+                            # Loop through all values and record the final
+                            # best values
+                            evs_old = 0
+                            count = 0
+                            for idx, evs in enumerate(vals[:, 0]):
+                                # Check to see if the number of evaluations
+                                # has gone down compared to the last row
+                                # or whether we have reached the end of the
+                                # array
+                                if (evs < evs_old) or (idx == vals.shape[1]-1):
+                                    # We've looped through all values for a
+                                    # run: add the max of the last two values
+                                    # to the sum (to include the cases both
+                                    # where the maximum value was found in the
+                                    # last saved iteration and not)
+                                    all_vals[r_idx, F_idx, mu_idx, lam_idx,
+                                             fid_idx, count] = np.max(
+                                                 (vals[idx-1, 1],
+                                                  vals[idx-2, 1]))
+                                    count += 1
+                                evs_old = evs
+        # Reshape the array to a 2D-array to save for quick future loading
+        shape = (len(r_init_vals), len(F_vals),
+                 mu_vals.shape[0], lam_vals.shape[0],
+                 len(fid_vals), n_runs)
+        shape_sav = (np.prod(shape[3:]), np.prod(shape[:3]))
+        np.savetxt('data/all_data', all_vals.reshape(shape_sav),
+                   header=f'{shape}')
+        # %% Load the saved array for consistency
+        shape = (len(r_init_vals), len(F_vals),
+                 mu_vals.shape[0], lam_vals.shape[0],
+                 len(fid_vals), n_runs)
+        all_vals = np.loadtxt('data/all_data').reshape(shape)
+        # Take the values averaged over all runs
+        all_means = np.mean(all_vals, axis=-1)
+        # Create the table we need to generate
+        tab = np.full((np.sum(shape[:4]) + 1, 9, 3), np.nan)
+        # Save the various parameter values in a dictionary such that we can
+        # reuse our code for the table
+        par_dict = dict()
+        par_dict[0] = np.array(r_init_vals)
+        par_dict[1] = np.array(F_vals)
+        par_dict[2] = mu_vals
+        par_dict[3] = lam_vals
+        # Loop over the parameters
+        # First find the global results: present those in the first row
+        for f_idx in range(3):
+            rel_vals = all_means[:, :, :, :, f_idx]
+            tab[0, 1, f_idx] = np.min(rel_vals)
+            tab[0, 2, f_idx] = np.mean(rel_vals)
+            max_arg = np.unravel_index(np.argmax(rel_vals),
+                                       rel_vals.shape)
+            tab[0, 3, f_idx] = rel_vals[max_arg]
+            tab[0, 4, f_idx] = np.std(rel_vals)
+            # Save the maximal-performance parameters
+            for arg_idx, arg in enumerate(max_arg):
+                best_val = par_dict[arg_idx][arg]
+                tab[0, 5 + arg_idx] = best_val
+        # Now find the results marginalised over each varied parameter
+        tab_row = 1
+        for par_idx in range(4):
+            for val_idx, par_val in enumerate(par_dict[par_idx]):
+                for f_idx in range(3):
+                    # Isolate the relevant values i.e. slice along the axis
+                    # we want to isolate
+                    rel_vals = all_means.take(indices=val_idx,
+                                              axis=par_idx)[:, :, :, f_idx]
+                    tab[tab_row, 0, f_idx] = par_val
+                    # Find the mininum and mean obtained values
+                    tab[tab_row, 1, f_idx] = np.min(rel_vals)
+                    tab[tab_row, 2, f_idx] = np.mean(rel_vals)
+                    # Find the maximum value attained using this parameter
+                    max_arg = np.unravel_index(np.argmax(rel_vals),
+                                               rel_vals.shape)
+                    tab[tab_row, 3, f_idx] = rel_vals[max_arg]
+                    # Find the standard deviation as proxy for the spread
+                    tab[tab_row, 4, f_idx] = np.std(rel_vals)
+                    for arg_idx, arg in enumerate(max_arg):
+                        # Skip the column for the value we're testing
+                        if arg_idx >= par_idx:
+                            tab_arg = arg_idx + 1
+                        else:
+                            tab_arg = arg_idx
+                        best_val = par_dict[tab_arg][arg]
+                        tab[tab_row, 5 + tab_arg] = best_val
+                    tab[tab_row, 5 + par_idx] = par_val
+                    # Increment the table row
+                tab_row += 1
+        # tab = np.round(tab, 3)
