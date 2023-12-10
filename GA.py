@@ -918,4 +918,10 @@ if __name__ == "__main__":
                     tab[tab_row, 5 + par_idx, f_idx] = par_val
                     # Increment the table row
                 tab_row += 1
-        # tab = np.round(tab, 3)
+        # The orders of the standard deviation we find indicate that we cannot
+        # trust these results to more than 2-3 decimal places
+        tab = np.round(tab, 3)
+        # Save the tables
+        for idx, fid in enumerate(["F1", "F18", "F19"]):
+            np.savetxt(f"data/data_summary_table_{fid}.txt",
+                       tab[:, :, idx])
