@@ -22,6 +22,8 @@ def mutate(population: np.ndarray[bool],
     Takes the population and alters each gene of each individual with
     probability p_mutation; takes place in-place, so as to avoid having to
     copy over the full population every generation.
+    N.B.: not used in the final implementation of the two-rate GA, only in
+    the reference algorithms used in initial exploration.
 
     Parameters
     ----------
@@ -62,6 +64,8 @@ def crossover(population: np.ndarray[bool],
     Perform in-place cross-over on the population. Supports arbitrarily many
     cross-over points (so long as it is less than the genome length) and
     uniform crossover.
+    N.B.: not used in the final implementation of the two-rate GA, only in
+    the reference algorithms used in initial exploration.
 
     [1] de Jong, K. A. (1975). Analysis of the behavior of a class of
         genetic adaptive systems.
@@ -219,8 +223,6 @@ def mating_selection(parents: np.ndarray[bool],
     # Sort the parents according to fitness, in decreasing order
     argsort = np.argsort(f_parents)[::-1]
     if select_best > 0:
-        # Sort the parents by performance; invert the result, as we want to
-        # optimise rather than minimise
         # Select the select_best first parents for guaranteed reproduction
         for best_idx in range(select_best):
             # Select the corresponding parent
@@ -294,7 +296,9 @@ def evaluate(problem, population: np.ndarray[bool]):
 
 
 # %%
-# Final signature must be studentnumber1_studentnumber2_GA(problem)
+# Define a number of GAs; while these have not been used in the final run,
+# they were used in preliminary exploration and so we attach them for
+# reference
 
 def standard_GA(problem):
     """
@@ -491,7 +495,9 @@ def two_rate_GA(problem):
     """
     Optimise the given problem using a two-rate genetic algorithm.
 
-    Uses a two-rate (1 + λ)-GA like that in [1].
+    Uses a two-rate (1 + λ)-GA like that in [1]. A more general version of
+    this algorithm is given by s4034538_s3366766_GA, which allows arbitrary
+    parent population sizes.
 
     [1] Doerr, B., Gießen, C., Witt, C., & Yang, J. (2019). The (1 + λ)
     Evolutionary Algorithm with Self-Adjusting Mutation Rate. Algorithmica,
@@ -545,12 +551,12 @@ def two_rate_GA(problem):
         r = np.clip(r, 2, dimension/4)
 
 
-def two_rate_mu_GA(problem,
-                   mu: int = 5,
-                   lam: int = 20,
-                   r_init: float = 2,
-                   F: float = 1.1,
-                   return_r: bool = False):
+def s4034538_s3366766_GA(problem,
+                         mu: int = 1,
+                         lam: int = 2,
+                         r_init: float = 20,
+                         F: float = 1.05,
+                         return_r: bool = False):
     """
     Optimise the given problem using a two-rate genetic algorithm.
 
@@ -728,7 +734,7 @@ def create_problem(fid: int,
 # # this how you run your algorithm with 20 repetitions/independent run
 # F18, _logger = create_problem(18)
 # for run in range(20):
-#     two_rate_mu_GA(F18)
+#     s4034538_s3366766_GA(F18)
 #     F18.reset()  # it is necessary to reset the problem after
 #     # each independent run
 # _logger.close()  # after all runs, it is necessary to close the
@@ -772,10 +778,9 @@ if __name__ == "__main__":
                             algorithm_name=f"2_rate_({mu}+{lam})-GA",
                             algorithm_info=f"2-rate ({mu}+{lam})-GA")
                         for run in range(n_runs):
-                            r_hist = two_rate_mu_GA(Fid, mu=mu, lam=lam,
-                                                    r_init=r_init,
-                                                    F=F,
-                                                    return_r=True)
+                            r_hist = s4034538_s3366766_GA(
+                                Fid, mu=mu, lam=lam, r_init=r_init,
+                                F=F, return_r=True)
                             Fid.reset()
                             count += 1
                             print(
