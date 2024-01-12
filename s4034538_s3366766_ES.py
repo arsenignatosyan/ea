@@ -680,34 +680,91 @@ if __name__ == "__main__":
     mutation_types = ["single", "individual", "correlated"]
     selection_types = [",", "+"]
     initial_step_sizes = [0.5, 1, 1.5, 2]
-
+    hyperparameters = [
+        {
+            "mu": 12,
+            "lambda": 50,
+            "mutation_type": "correlated",
+            "initial_step_size": 1,
+            "selection_type": "+"
+        },
+        {
+            "mu": 15,
+            "lambda": 100,
+            "mutation_type": "correlated",
+            "initial_step_size": 0.5,
+            "selection_type": ","
+        },
+        {
+            "mu": 15,
+            "lambda": 100,
+            "mutation_type": "correlated",
+            "initial_step_size": 1,
+            "selection_type": ","
+        },
+        {
+            "mu": 2,
+            "lambda": 50,
+            "mutation_type": "correlated",
+            "initial_step_size": 1,
+            "selection_type": "+"
+        },
+        {
+            "mu": 12,
+            "lambda": 100,
+            "mutation_type": "correlated",
+            "initial_step_size": 2,
+            "selection_type": ","
+        },
+        {
+            "mu": 15,
+            "lambda": 100,
+            "mutation_type": "correlated",
+            "initial_step_size": 0.5,
+            "selection_type": "+"
+        },
+        {
+            "mu": 15,
+            "lambda": 50,
+            "mutation_type": "correlated",
+            "initial_step_size": 0.5,
+            "selection_type": "+"
+        },
+        {
+            "mu": 10,
+            "lambda": 20,
+            "mutation_type": "correlated",
+            "initial_step_size": 1,
+            "selection_type": "+"
+        },
+        {
+            "mu": 12,
+            "lambda": 100,
+            "mutation_type": "correlated",
+            "initial_step_size": 0.5,
+            "selection_type": ","
+        },
+    ]
+    print(len(hyperparameters))
     n_runs = 20  # Nr of runs
     fid_values = [18, 19]  # Function IDs to run
-    # Tot nr of loop components:
-    tot_values = mu_values.shape[0] * lamdba_values.shape[0] * len(fid_values) * len(mutation_types) * \
-                 len(selection_types) * len(initial_step_sizes) * n_runs
-    count = 0
-    print("Running tests for offspring and parent numbers...")
-    time_str = datetime.now().strftime("%Y_%m_%d_%H%M%S")
     for fid in fid_values:
-        for initial_step_size in initial_step_sizes:
-            for selection_type in selection_types:
-                for mutation_type in mutation_types:
-                    for mu_ in mu_values:
-                        for lambda_ in lamdba_values:
-                            if lambda_ < mu_:
-                                continue
-                            print(f"({mu_}{selection_type}{lambda_})-ES-{mutation_type}-{initial_step_size}")
-                            path = f"({mu_}{selection_type}{lambda_})-ES/F{fid}_({mu_}{selection_type}{lambda_})-ES-{mutation_type}-{initial_step_size}"
-                            Fid, _logger = create_problem(
-                                fid,
-                                folder_name=path,
-                                algorithm_name=f"({mu_}{selection_type}{lambda_})-ES-{mutation_type}-{initial_step_size}",
-                                algorithm_info=f"({mu_}{selection_type}{lambda_})-ES-{mutation_type}-{initial_step_size}")
-                            for run in range(n_runs):
-                                s4034538_s3366766_ES(Fid, lambda_=lambda_, mu_=mu_, mutation_type=mutation_type,
-                                                     selection_type=selection_type, initial_step_size=initial_step_size)
-                                Fid.reset()
-                                count += 1
-                                print(f"\rCompleted {round(count / tot_values * 100, 3)}%", end='', flush=True)
-                            _logger.close()
+        for hyperparameter in hyperparameters:
+            mu_ = hyperparameter["mu"]
+            lambda_ = hyperparameter["lambda"]
+            mutation_type = hyperparameter["mutation_type"]
+            initial_step_size = hyperparameter["initial_step_size"]
+            selection_type = hyperparameter["selection_type"]
+
+            path = f"({mu_}{selection_type}{lambda_})-ES/F{fid}_({mu_}{selection_type}{lambda_})-ES-{mutation_type}-{initial_step_size}"
+            print(path)
+            Fid, _logger = create_problem(
+                fid,
+                folder_name=path,
+                algorithm_name=f"({mu_}{selection_type}{lambda_})-ES-{mutation_type}-{initial_step_size}",
+                algorithm_info=f"({mu_}{selection_type}{lambda_})-ES-{mutation_type}-{initial_step_size}")
+            for run in range(n_runs):
+                s4034538_s3366766_ES(Fid, lambda_=lambda_, mu_=mu_, mutation_type=mutation_type,
+                                     selection_type=selection_type, initial_step_size=initial_step_size)
+                Fid.reset()
+            _logger.close()
