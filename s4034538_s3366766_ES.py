@@ -756,7 +756,7 @@ if __name__ == "__main__":
             initial_step_size = hyperparameter["initial_step_size"]
             selection_type = hyperparameter["selection_type"]
 
-            path = f"({mu_}{selection_type}{lambda_})-ES/F{fid}_({mu_}{selection_type}{lambda_})-ES-{mutation_type}-{initial_step_size}"
+            path = f"F{fid}-ES/({mu_}{selection_type}{lambda_})-ES-{mutation_type}-{initial_step_size}"
             print(path)
             Fid, _logger = create_problem(
                 fid,
