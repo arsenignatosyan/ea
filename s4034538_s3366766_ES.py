@@ -375,7 +375,7 @@ def preserve_recombination(parent: np.ndarray[float]) -> np.ndarray[float]:
 
 def recombination(lambda_: int, binary_population: np.ndarray[bool], population_sigma: np.ndarray[float],
                   population_rotation_angles: Union[np.ndarray[float], None]) -> Tuple[
-        np.ndarray[bool], np.ndarray[float], np.ndarray[float]]:
+    np.ndarray[bool], np.ndarray[float], np.ndarray[float]]:
     """
     Using recombination technique create lambda_ new offsprings from the given population and its strategy parameters.
     For x-s the discrete recombination is chosen. For step sizes the global intermediate recombination is selected.
@@ -477,7 +477,7 @@ def selection(mu_: int, selection_type: Literal[",", "+"], real_population: np.n
               offspring_sigma: np.ndarray[float], population_f: np.ndarray[float], offspring_f: np.ndarray[float],
               population_rotation_angles: Union[np.ndarray[float], None],
               offspring_rotation_angles: Union[np.ndarray[float], None]) -> Tuple[
-        np.ndarray[float], np.ndarray[bool], np.ndarray[float], Union[np.ndarray[float], None], np.ndarray[float]]:
+    np.ndarray[float], np.ndarray[bool], np.ndarray[float], Union[np.ndarray[float], None], np.ndarray[float]]:
     """
     Select mu_ offspring based on the selection type chosen
 
@@ -547,9 +547,9 @@ def selection(mu_: int, selection_type: Literal[",", "+"], real_population: np.n
     return new_real, new_binary, new_sigma, new_rotation_angles, new_f
 
 
-def ES(problem: Union[ioh.iohcpp.problem.IsingRing, ioh.iohcpp.problem.LABS], mu_: int, lambda_: int,
-       initial_step_size: float, mutation_type: Literal["single", "individual", "correlated"],
-       selection_type: Literal[",", "+"]):
+def s4034538_s3366766_ES(problem: Union[ioh.iohcpp.problem.IsingRing, ioh.iohcpp.problem.LABS], mu_: int, lambda_: int,
+                         initial_step_size: float, mutation_type: Literal["single", "individual", "correlated"],
+                         selection_type: Literal[",", "+"]):
     """
     Optimizes for the given problem using Evolution Strategy (ES)
 
@@ -619,7 +619,7 @@ def ES(problem: Union[ioh.iohcpp.problem.IsingRing, ioh.iohcpp.problem.LABS], mu
 
 def create_problem(fid: int, root: str = "data", folder_name: str = "run_", algorithm_name: str = "ES",
                    algorithm_info: str = "Practical assignment of EA", timestamp: bool = True) -> Tuple[
-        Union[ioh.iohcpp.problem.IsingRing, ioh.iohcpp.problem.LABS], ioh.iohcpp.logger.Analyzer]:
+    Union[ioh.iohcpp.problem.IsingRing, ioh.iohcpp.problem.LABS], ioh.iohcpp.logger.Analyzer]:
     """
     Create an ioh.iohcpp.problem and add a logger to it.
 
@@ -705,25 +705,9 @@ if __name__ == "__main__":
                                 algorithm_name=f"({mu_}{selection_type}{lambda_})-ES-{mutation_type}-{initial_step_size}",
                                 algorithm_info=f"({mu_}{selection_type}{lambda_})-ES-{mutation_type}-{initial_step_size}")
                             for run in range(n_runs):
-                                ES(Fid, lambda_=lambda_, mu_=mu_, mutation_type=mutation_type,
-                                   selection_type=selection_type, initial_step_size=initial_step_size)
+                                s4034538_s3366766_ES(Fid, lambda_=lambda_, mu_=mu_, mutation_type=mutation_type,
+                                                     selection_type=selection_type, initial_step_size=initial_step_size)
                                 Fid.reset()
                                 count += 1
                                 print(f"\rCompleted {round(count / tot_values * 100, 3)}%", end='', flush=True)
                             _logger.close()
-
-# if __name__ == "__main__":
-#     # this how you run your algorithm with 20 repetitions/independent run
-#     F18, _logger = create_problem(18)
-#     for run in range(20):
-#         ES(F18, lambda_=1, mu_=1, mutation_type="single", selection_type="+",
-#            initial_step_size=0.5)
-#         F18.reset()  # it is necessary to reset the problem after each independent run
-#     _logger.close()  # after all runs, it is necessary to close the logger to make sure all data are written to the folder
-#
-#     F19, _logger = create_problem(19)
-#     for run in range(20):
-#         ES(F19, lambda_=100, mu_=15, mutation_type="correlated", recombination_global=True, selection_type=",",
-#            initial_step_size=1)
-#         F19.reset()
-#     _logger.close()
