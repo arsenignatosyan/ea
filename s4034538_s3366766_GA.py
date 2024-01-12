@@ -938,16 +938,18 @@ if __name__ == "__main__":
     ###########################################################################
 
     ###########################################################################
-    # Uncomment between this header and the following footer to reproduce the
-    # exact best results ######################################################
+    # Uncomment between this header and the following footer to reproduce only
+    # the best results ########################################################
     ###########################################################################
     F = 1.05
     r_init = 20
+    mu_vals = np.array([1])
+    lam_vals = np.array([2])
     np.random.seed(3366766)
     time_str = datetime.now().strftime("%Y_%m_%d_%H%M%S")
     # F = 1.05
     # r_init = 25
-    folder_path = "new_run_" + time_str + f"_r{r_init}_F{F}"
+    folder_path = "non_exact_new_run_" + time_str + f"_r{r_init}_F{F}"
     r_dict = np.full((mu_vals.shape[0], lam_vals.shape[0],
                       len(fid_vals),
                       n_runs, 5000), np.nan, dtype=np.float64)
@@ -973,65 +975,14 @@ if __name__ == "__main__":
                         f"\rCompleted {round(count/tot_vals*100, 3)}%",
                         end='', flush=True)
                     r_dict[mu_idx, lam_idx, fid_idx, run,
-                            :r_hist.shape[0]] = r_hist
+                           :r_hist.shape[0]] = r_hist
                 _logger.close()
     # Save r_dict as a .txt file
     np.savetxt("data/" + folder_path + "/r_dict.txt",
-                r_dict.reshape((r_dict.shape[0]*r_dict.shape[1] *
-                                r_dict.shape[2]*r_dict.shape[3],
-                                r_dict.shape[-1])),
-                header=f"{r_dict.shape}")
-    ###########################################################################
-    # Uncomment between this footer and the preceding header to reproduce the
-    # exact best results ######################################################
-    ###########################################################################
-
-    ###########################################################################
-    # Uncomment between this header and the following footer to reproduce only
-    # the best results, but not (necessarily) exactly #########################
-    ###########################################################################
-    # F = 1.05
-    # r_init = 20
-    # mu_vals = np.array([1])
-    # lam_vals = np.array([2])
-    # np.random.seed(3366766)
-    # time_str = datetime.now().strftime("%Y_%m_%d_%H%M%S")
-    # # F = 1.05
-    # # r_init = 25
-    # folder_path = "non_exact_new_run_" + time_str + f"_r{r_init}_F{F}"
-    # r_dict = np.full((mu_vals.shape[0], lam_vals.shape[0],
-    #                   len(fid_vals),
-    #                   n_runs, 5000), np.nan, dtype=np.float64)
-    # tot_vals = mu_vals.size*lam_vals.size*len(fid_vals)*n_runs
-    # count = 0
-    # for mu_idx, mu in enumerate(mu_vals):
-    #     for lam_idx, lam in enumerate(lam_vals):
-    #         for fid_idx, fid in enumerate(fid_vals):
-    #             path = folder_path + \
-    #                 f"/({mu}+{lam})-GA/F{fid}_2_rate_({mu}+{lam})-GA_"
-    #             Fid, _logger = create_problem(
-    #                 fid,
-    #                 folder_name=path,
-    #                 algorithm_name=f"2_rate_({mu}+{lam})-GA",
-    #                 algorithm_info=f"2-rate ({mu}+{lam})-GA")
-    #             for run in range(n_runs):
-    #                 r_hist = s4034538_s3366766_GA(
-    #                     Fid, mu=mu, lam=lam, r_init=r_init,
-    #                     F=F, return_r=True)
-    #                 Fid.reset()
-    #                 count += 1
-    #                 print(
-    #                     f"\rCompleted {round(count/tot_vals*100, 3)}%",
-    #                     end='', flush=True)
-    #                 r_dict[mu_idx, lam_idx, fid_idx, run,
-    #                        :r_hist.shape[0]] = r_hist
-    #             _logger.close()
-    # # Save r_dict as a .txt file
-    # np.savetxt("data/" + folder_path + "/r_dict.txt",
-    #            r_dict.reshape((r_dict.shape[0]*r_dict.shape[1] *
-    #                            r_dict.shape[2]*r_dict.shape[3],
-    #                            r_dict.shape[-1])),
-    #            header=f"{r_dict.shape}")
+               r_dict.reshape((r_dict.shape[0]*r_dict.shape[1] *
+                               r_dict.shape[2]*r_dict.shape[3],
+                               r_dict.shape[-1])),
+               header=f"{r_dict.shape}")
     ###########################################################################
     # Uncomment between this header and the following footer to reproduce only
     # the best results, but not exactly #######################################
